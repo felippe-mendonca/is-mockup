@@ -125,18 +125,18 @@ struct PtGrey {
         this->client.request("ack;");
       } else {
         is::log::warn("Frame timeouted, restarting");
+        is::log::info("Requesting connection configuration");
+        this->client.request("req_connection;" + this->gw_ip + ":" +
+                             this->udp_port);
+        is::log::info("Sending start capture command");
         this->client.request("start;");
       }
     }
   }
 
-  cv::Mat get_last_frame() {
-    return last_frame;
-  }
+  cv::Mat get_last_frame() { return last_frame; }
 
-  Timestamp get_last_timestamp() {
-    return last_timestamp;
-  }
+  Timestamp get_last_timestamp() { return last_timestamp; }
 };
 
 } // ::driver

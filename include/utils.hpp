@@ -264,7 +264,7 @@ struct Client {
     zmq_msg_send(&this->msg, this->client, 0);
     zmq_msg_close(&this->msg);
 
-    unsigned int timeout = 100; // ms
+    unsigned int timeout = 1000; // ms
     zmq_setsockopt(this->client, ZMQ_RCVTIMEO, &timeout, sizeof(unsigned int)); // set recv timeout
     while (1) {
       zmq_msg_init(&this->msg);

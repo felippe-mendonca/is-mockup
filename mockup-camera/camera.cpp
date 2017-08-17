@@ -1,12 +1,12 @@
-#include "utils.hpp"
 #include "logger.hpp"
+#include "utils.hpp"
 #include <chrono>
 #include <condition_variable>
 #include <iostream>
-#include <mutex>
-#include <thread>
 #include <map>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <time.h>
 
 #include <boost/algorithm/string.hpp>
@@ -16,7 +16,7 @@
 using namespace std;
 using namespace std::chrono;
 
-enum class State { IDLE, PUBLISHING };
+enum class State { IDLE, IDLE_CONFIGURED, PUBLISHING };
 enum class TCP_Cmd { REQ_CONNECTION, START, STOP, ACK };
 const map<string, TCP_Cmd> tcp_command = {
     {"req_connection", TCP_Cmd::REQ_CONNECTION},
@@ -26,7 +26,7 @@ const map<string, TCP_Cmd> tcp_command = {
 
 std::string uri;
 
-State parse_tcp_cmd(Server &server, Radio &radio,
+State parse_tcp_cmd(Server &server, Radio &radio, State const& state,
                     unsigned int const &timeout = -1) {
   string msg;
   try {
@@ -56,24 +56,32 @@ State parse_tcp_cmd(Server &server, Radio &radio,
 
   server.send("ok");
   switch (cmd->second) {
+
   case TCP_Cmd::REQ_CONNECTION: {
     uri = body;
-    radio.connect(uri);
-    return State::IDLE;
+    if (state != State::IDLE)
+      radio.disconnect();
+    return State::IDLE_CONFIGURED;
   }
 
   case TCP_Cmd::STOP:
-    // radio.disconnect(); // ?
-    is::log::info("Disconecting");
-    return State::IDLE;
+    is::log::info("Stopping");
+    return state == State::PUBLISHING ? State::IDLE_CONFIGURED : State::IDLE;
 
   case TCP_Cmd::ACK:
-    return State::PUBLISHING;
+    return state == State::PUBLISHING
+               ? State::PUBLISHING
+               : (state == State::IDLE ? State::IDLE : State::IDLE_CONFIGURED);
 
   case TCP_Cmd::START:
-    radio.connect(uri);
-    is::log::info("Publishing");
-    return State::PUBLISHING;
+    if (state == State::IDLE_CONFIGURED) {
+      radio.connect(uri);
+      is::log::info("Publishing");
+      return State::PUBLISHING;
+    } else if(state == State::PUBLISHING) {
+      return State::PUBLISHING;
+    }
+    return State::IDLE;
   }
 }
 
@@ -88,7 +96,11 @@ int main(int argc, char *argv[]) {
   while (1) {
     switch (state) {
     case State::IDLE: {
-      state = parse_tcp_cmd(server, radio);
+      state = parse_tcp_cmd(server, radio, state);
+      break;
+    }
+    case State::IDLE_CONFIGURED: {
+      state = parse_tcp_cmd(server, radio, state);
       if (state == State::PUBLISHING)
         now = high_resolution_clock::now();
       break;
@@ -96,14 +108,13 @@ int main(int argc, char *argv[]) {
     case State::PUBLISHING: {
       now = now + milliseconds(200);
       radio.send_frame(1372, 690);
-      
-      auto diff =
-          duration_cast<nanoseconds>(now - high_resolution_clock::now())
-              .count();
+
+      auto diff = duration_cast<nanoseconds>(now - high_resolution_clock::now())
+                      .count();
       struct timespec timeout = {.tv_sec = 0, .tv_nsec = diff - 1000000};
       nanosleep(&timeout, nullptr);
 
-      state = parse_tcp_cmd(server, radio, 0);
+      state = parse_tcp_cmd(server, radio, state, 0);
       while (high_resolution_clock::now() < now) {
       }
       break;
