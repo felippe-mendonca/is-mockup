@@ -1,0 +1,225 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: default
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: edge
+      containers:
+      - name: rabbitmq
+        image: picoreti/rabbitmq
+        ports:
+        - containerPort: 5672
+        - containerPort: 1883
+        - containerPort: 15675
+        - containerPort: 15672
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      protocol: TCP
+      port: 5672 # service
+      targetPort: 5672 # pod
+      nodePort: 30000 # cluster
+    - name: managment
+      protocol: TCP
+      port: 80
+      targetPort: 15672
+      nodePort: 30080
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ptgrey-gws
+  namespace: default
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ptgrey-gws
+    spec:
+      hostNetwork: true
+      dnsPolicy: "ClusterFirstWithHostNet"
+      nodeSelector:
+        kubernetes.io/hostname: edge
+      containers:
+      - name: "ptgrey0"
+        image: mendonca/mockup-gateway-ptgrey:0.1
+        workingDir: "/opt"
+        command: ["/opt/ptgrey"]
+        args: ["-e", "ptgrey.0", "-i", "192.168.1.200", "-p", "8130", "-n", "192.168.1.0", "-u", "amqp://rabbitmq.default:5672"]
+        imagePullPolicy: Always
+        resources:
+          limits: 
+            memory: 128Mi
+          requests:
+            memory: 64Mi
+    
+      - name: "ptgrey1"
+        image: mendonca/mockup-gateway-ptgrey:0.1
+        workingDir: "/opt"
+        command: ["/opt/ptgrey"]
+        args: ["-e", "ptgrey.1", "-i", "192.168.1.201", "-p", "8131", "-n", "192.168.1.0", "-u", "amqp://rabbitmq.default:5672"]
+        imagePullPolicy: Always
+        resources:
+          limits: 
+            memory: 128Mi
+          requests:
+            memory: 64Mi
+      
+      - name: "ptgrey2"
+        image: mendonca/mockup-gateway-ptgrey:0.1
+        workingDir: "/opt"
+        command: ["/opt/ptgrey"]
+        args: ["-e", "ptgrey.2", "-i", "192.168.1.202", "-p", "8132", "-n", "192.168.1.0", "-u", "amqp://rabbitmq.default:5672"]
+        imagePullPolicy: Always
+        resources:
+          limits: 
+            memory: 128Mi
+          requests:
+            memory: 64Mi
+
+      - name: "ptgrey3"
+        image: mendonca/mockup-gateway-ptgrey:0.1
+        workingDir: "/opt"
+        command: ["/opt/ptgrey"]
+        args: ["-e", "ptgrey.3", "-i", "192.168.1.203", "-p", "8133", "-n", "192.168.1.0", "-u", "amqp://rabbitmq.default:5672"]
+        imagePullPolicy: Always
+        resources:
+          limits: 
+            memory: 128Mi
+          requests:
+            memory: 64Mi
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: pioneer-gw
+  namespace: default
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: pioneer-gw
+    spec:
+      # hostNetwork: true
+      # dnsPolicy: "ClusterFirstWithHostNet"
+      containers:
+      - name: "pioneer0"
+        image: mendonca/mockup-gateway-pioneer:0.1
+        workingDir: "/opt"
+        command: ["/opt/pioneer"]
+        args: ["-e", "pioneer.0", "-u", "amqp://rabbitmq.default:5672", "-s", "/dev/ttyUSB0"]
+        imagePullPolicy: Always
+        resources:
+          limits: 
+            memory: 128Mi
+          requests:
+            memory: 64Mi
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: circles-pattern
+  namespace: default
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: circles-pattern
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ninja
+      containers:
+      - name: circles-pattern
+        image: mendonca/service-circles_pattern:trace
+        command: ["/opt/circles_pattern"]
+        args: ["-u", "amqp://rabbitmq.default:5672"]
+        imagePullPolicy: Always
+        resources:
+          limits:
+            memory: 256Mi
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: frame-converter
+  namespace: default
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: frame-converter
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: edge
+      containers:
+      - name: frame-converter
+        image: mendonca/service-frame_converter:trace
+        command: ["/opt/frame_converter"]
+        args: ["-u", "amqp://rabbitmq.default:5672"]
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: visual-servoing
+  namespace: default
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: visual-servoing
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: edge
+      containers:
+      - name: visual-servoing
+        image: mendonca/service-visual_servoing:0.0.2
+        command: ["/opt/visual_servoing"]
+        args: ["-u", "amqp://rabbitmq.default:5672"]
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi

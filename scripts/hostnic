@@ -1,0 +1,20 @@
+#!/bin/bash
+
+if [ -z `docker ps -q -f name=hostnic` ]; then
+# starts hostnic plugin
+  docker run -d --name=hostnic --restart=always \
+    -v /run/docker/plugins:/run/docker/plugins \
+    -v /etc/docker/hostnic:/etc/docker/hostnic \
+    --network host --privileged \
+    qingcloud/docker-plugin-hostnic docker-plugin-hostnic
+# creates docker network
+    echo "Creating network with hostnic driver."
+    echo "Please, enter subnet (e.g. 192.168.1.0/24)"
+    echo -e ">> \c"
+    read SUBNET
+    echo "Now, enter gateway default (e.g. 192.168.1.1)"
+    echo -e ">> \c"
+    read GW
+    docker network create -d hostnic \
+        --subnet=$SUBNET --gateway $GW hostnic
+fi

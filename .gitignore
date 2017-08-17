@@ -1,0 +1,5 @@
+app/visual_servoing
+is-gateways/gateways/ptgrey/ptgrey
+is-gateways/gateways/ptgrey-test/ptgrey
+is-gateways/gateways/pioneer/pioneer
+mockup-camera/camera
