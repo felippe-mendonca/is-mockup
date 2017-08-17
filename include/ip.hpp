@@ -16,6 +16,8 @@
 
 namespace ip {
 
+enum class src {NET, GW};
+
 using namespace std;
 
 map<string, string> list_all() {

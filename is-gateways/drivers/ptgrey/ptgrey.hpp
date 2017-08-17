@@ -42,11 +42,11 @@ struct PtGrey {
   std::thread recv_thread;
 
   PtGrey(std::string const &camera_ip, std::string const &udp_port,
-         std::string const &network_ip, std::string const &entity)
+         std::string const &network_ip, std::string const &entity, ip::src const& type)
       : client(camera_ip, "3956"), received(false) {
     this->camera_ip = camera_ip;
     this->udp_port = udp_port;
-    this->gw_ip = ip::filter::network(network_ip);
+    this->gw_ip = type == ip::src::NET ? ip::filter::network(network_ip) : network_ip;
     this->last_frame = cv::imread("images/" + entity + ".jpeg");
     is::log::info("Requesting connection configuration");
     this->client.request("req_connection;" + this->gw_ip + ":" +

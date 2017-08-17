@@ -6,7 +6,7 @@ SO_DEPS += -lboost_program_options -lboost_system -lpthread -lzmq -I../../../inc
 
 TARGET=ptgrey
 SERVICE=mockup-gateway-ptgrey
-VERSION=0.1
+VERSION=0.2
 DOCKER_USER=mendonca
 
 all: $(TARGET)
